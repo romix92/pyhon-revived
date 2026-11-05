@@ -325,6 +325,9 @@ class HonAppliance:
                     or not base_param.mandatory
                 ):
                     continue
+                if main == "settings" and command == "startProgram":
+                    if name in ["machMode", "onOffStatus", "program"]:
+                        continue
                 self.sync_parameter(base_param, target_param)
 
     def sync_parameter(self, main: Parameter, target: Parameter) -> None:
