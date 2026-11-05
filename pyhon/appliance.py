@@ -297,6 +297,13 @@ class HonAppliance:
                 _LOGGER.info("Can't set %s - %s", key, error)
                 continue
 
+    @staticmethod
+    def _get_base_param(base: HonCommand, name: str) -> Optional[Parameter]:
+        if param := base.parameters.get(name):
+            return param
+        alias = {"temp": "tempSel", "tempSel": "temp"}.get(name)
+        return base.parameters.get(alias) if alias else None
+
     def sync_command(
         self,
         main: str,
@@ -311,7 +318,7 @@ class HonAppliance:
                 continue
 
             for name, target_param in data.parameters.items():
-                if not (base_param := base.parameters.get(name)):
+                if not (base_param := self._get_base_param(base, name)):
                     continue
                 if to_sync and (
                     (isinstance(to_sync, list) and name not in to_sync)
