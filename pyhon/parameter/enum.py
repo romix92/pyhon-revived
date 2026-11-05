@@ -20,7 +20,7 @@ class HonParameterEnum(HonParameter):
         self._set_attributes()
         if self._default and clean_value(self._default.strip("[]")) not in self.values:
             self._values.append(self._default)
-        if self.values and clean_value(self._value) not in self.values:
+        if self._values and clean_value(self._value) not in self.values:
             self._value = self.values[0]
 
     def _set_attributes(self) -> None:
@@ -46,7 +46,7 @@ class HonParameterEnum(HonParameter):
         self._values = values
         if self._default and clean_value(self._default.strip("[]")) not in self.values:
             self._values.append(self._default)
-        if self.values and clean_value(self._value) not in self.values:
+        if self._values and clean_value(self._value) not in self.values:
             self._value = self.values[0]
         _LOGGER.info(
             "Set values of %s to %s", str(self._key), str(self._values)
