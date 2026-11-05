@@ -326,7 +326,7 @@ class HonAppliance:
                 ):
                     continue
                 if main == "settings" and command == "startProgram":
-                    if name in ["machMode", "onOffStatus", "program"]:
+                    if name in ["machMode", "onOffStatus", "program", "healthMode"]:
                         continue
                 self.sync_parameter(base_param, target_param)
 

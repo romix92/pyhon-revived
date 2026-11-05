@@ -11,16 +11,30 @@ class Appliance(ApplianceBase):
         mach_mode = params.get("machMode")
         mach_val = str(mach_mode.value if hasattr(mach_mode, "value") else mach_mode)
 
+        health_mode = params.get("healthMode")
+        health_val = str(health_mode.value if hasattr(health_mode, "value") else health_mode)
+
         # Map machMode to hOn program names for AC
-        ac_mode_map = {
-            "0": "iot_auto",
-            "1": "iot_cool",
-            "2": "iot_cool",
-            "3": "iot_dry",
-            "4": "iot_heat",
-            "5": "iot_fan",
-            "6": "iot_fan",
-        }
+        if health_val == "1":
+            ac_mode_map = {
+                "0": "iot_uv_and_auto",
+                "1": "iot_uv_and_cool",
+                "2": "iot_uv_and_cool",
+                "3": "iot_uv_and_dry",
+                "4": "iot_uv_and_heat",
+                "5": "iot_uv_and_fan",
+                "6": "iot_uv_and_fan",
+            }
+        else:
+            ac_mode_map = {
+                "0": "iot_auto",
+                "1": "iot_cool",
+                "2": "iot_cool",
+                "3": "iot_dry",
+                "4": "iot_heat",
+                "5": "iot_fan",
+                "6": "iot_fan",
+            }
         if mach_val in ac_mode_map:
             program_name = ac_mode_map[mach_val]
             data["programName"] = program_name
