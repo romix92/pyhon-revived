@@ -330,6 +330,12 @@ class HonAppliance:
             target.max = int(main.value)
             target.min = int(main.value)
             target.step = 1
-        elif isinstance(target, HonParameterEnum):
-            target.values = main.values
-        target.value = main.value
+        elif isinstance(target, HonParameterEnum) and isinstance(
+            main, HonParameterEnum
+        ):
+            if main.values:
+                target.values = main.values
+        try:
+            target.value = main.value
+        except ValueError as error:
+            _LOGGER.info("Can't sync parameter %s: %s", target.key, error)
