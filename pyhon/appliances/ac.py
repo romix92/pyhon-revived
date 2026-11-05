@@ -35,3 +35,4 @@ class Appliance(ApplianceBase):
 
     def settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         return settings
+
