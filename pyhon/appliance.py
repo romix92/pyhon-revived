@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import logging
 import re
+from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING, List, TypeVar, overload
@@ -338,9 +339,12 @@ class HonAppliance:
             target.min = main.min
             target.step = main.step
         elif isinstance(target, HonParameterRange):
-            target.max = int(main.value)
-            target.min = int(main.value)
-            target.step = 1
+            with suppress(ValueError, TypeError):
+                val = float(main.value)
+                if val < target.min:
+                    target.min = val
+                if val > target.max:
+                    target.max = val
         elif isinstance(target, HonParameterEnum) and isinstance(
             main, HonParameterEnum
         ):
