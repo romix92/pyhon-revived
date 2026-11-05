@@ -214,6 +214,7 @@ class HonAppliance:
         self._attributes |= attributes
         if self._extra:
             self._attributes = self._extra.attributes(self._attributes)
+        self.sync_params_to_command("settings")
 
     async def load_statistics(self) -> None:
         self._statistics = await self.api.load_statistics(self)
