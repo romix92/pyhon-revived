@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict, TYPE_CHECKING, Any, Optional
 
-from pyhon.parameter.enum import HonParameterEnum
+from pyhon.parameter.enum import HonParameterEnum, clean_value
 from pyhon.parameter.range import HonParameterRange
 from pyhon.typedefs import Parameter
 
@@ -120,10 +120,14 @@ class HonRuleSet:
     def _apply_enum(self, param: Parameter, rule: HonRule) -> None:
         if not isinstance(param, HonParameterEnum):
             return
+        current_val = clean_value(param.value)
         if enum_values := rule.param_data.get("enumValues"):
             param.values = enum_values.split("|")
-        if default_value := rule.param_data.get("defaultValue"):
-            param.value = default_value
+        if current_val not in param.values and (
+            default_value := rule.param_data.get("defaultValue")
+        ):
+            if clean_value(default_value) in param.values:
+                param.value = default_value
 
     def _add_trigger(self, parameter: "HonParameter", data: HonRule) -> None:
         def apply(rule: HonRule) -> None:

@@ -67,11 +67,14 @@ class HonParameterEnum(HonParameter):
     @value.setter
     def value(self, value: str) -> None:
         cleaned = clean_value(value)
+        old_cleaned = clean_value(self._value) if self._value is not None else None
         if cleaned in self.values:
             self._value = value
-            self.check_trigger(cleaned)
+            if cleaned != old_cleaned:
+                self.check_trigger(cleaned)
         elif str(value) in self.values:
             self._value = value
-            self.check_trigger(str(value))
+            if str(value) != old_cleaned:
+                self.check_trigger(str(value))
         else:
             raise ValueError(f"Allowed values: {self._values} But was: {value}")

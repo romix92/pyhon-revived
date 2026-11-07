@@ -33,8 +33,10 @@ class HonParameter:
 
     @value.setter
     def value(self, value: str | float) -> None:
+        old_val = self._value
         self._value = value
-        self.check_trigger(value)
+        if str(old_val) != str(value):
+            self.check_trigger(value)
 
     @property
     def intern_value(self) -> str:

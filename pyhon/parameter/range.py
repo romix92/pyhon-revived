@@ -61,8 +61,10 @@ class HonParameterRange(HonParameter):
         if self.min <= value <= self.max and not ((value - self.min) * 100) % (
             self.step * 100
         ):
+            old_val = self._value
             self._value = value
-            self.check_trigger(value)
+            if old_val != value:
+                self.check_trigger(value)
         else:
             allowed = f"min {self.min} max {self.max} step {self.step}"
             raise ValueError(f"Allowed: {allowed} But was: {value}")
