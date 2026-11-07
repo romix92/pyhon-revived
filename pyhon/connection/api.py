@@ -7,7 +7,7 @@ from pprint import pformat
 from types import TracebackType
 from typing import Dict, Optional, Any, List, no_type_check, Type
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from typing_extensions import Self
 
 from pyhon import const, exceptions
@@ -242,7 +242,9 @@ class HonAPI:
             last_data = data
 
             try:
-                async with self._hon.post(url, json=data) as response:
+                async with self._hon.post(
+                    url, json=data, timeout=ClientTimeout(total=5)
+                ) as response:
                     json_data: Dict[str, Any] = await response.json()
                     if json_data.get("payload", {}).get("resultCode") == "0":
                         return True
