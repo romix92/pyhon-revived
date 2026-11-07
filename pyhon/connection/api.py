@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -213,32 +214,66 @@ class HonAPI:
         ancillary_parameters: Dict[str, Any],
         program_name: str = "",
     ) -> bool:
-        now: str = datetime.utcnow().isoformat()
-        data: Dict[str, Any] = {
-            "macAddress": appliance.mac_address,
-            "timestamp": f"{now[:-3]}Z",
-            "commandName": command,
-            "transactionId": f"{appliance.mac_address}_{now[:-3]}Z",
-            "applianceOptions": appliance.options,
-            "device": self._hon.device.get(mobile=True),
-            "attributes": {
-                "channel": "mobileApp",
-                "origin": "standardProgram",
-                "energyLabel": "0",
-            },
-            "ancillaryParameters": ancillary_parameters,
-            "parameters": parameters,
-            "applianceType": appliance.appliance_type,
-        }
-        if command == "startProgram" and program_name:
-            data.update({"programName": program_name.upper()})
         url: str = f"{const.API_URL}/commands/v1/send"
-        async with self._hon.post(url, json=data) as response:
-            json_data: Dict[str, Any] = await response.json()
-            if json_data.get("payload", {}).get("resultCode") == "0":
-                return True
-            _LOGGER.error(await response.text())
-            _LOGGER.error("%s - Payload:\n%s", url, pformat(data))
+        max_attempts = 3
+        last_error_text = ""
+        last_data: Dict[str, Any] = {}
+
+        for attempt in range(1, max_attempts + 1):
+            now: str = datetime.utcnow().isoformat()
+            data: Dict[str, Any] = {
+                "macAddress": appliance.mac_address,
+                "timestamp": f"{now[:-3]}Z",
+                "commandName": command,
+                "transactionId": f"{appliance.mac_address}_{now[:-3]}Z",
+                "applianceOptions": appliance.options,
+                "device": self._hon.device.get(mobile=True),
+                "attributes": {
+                    "channel": "mobileApp",
+                    "origin": "standardProgram",
+                    "energyLabel": "0",
+                },
+                "ancillaryParameters": ancillary_parameters,
+                "parameters": parameters,
+                "applianceType": appliance.appliance_type,
+            }
+            if command == "startProgram" and program_name:
+                data.update({"programName": program_name.upper()})
+            last_data = data
+
+            try:
+                async with self._hon.post(url, json=data) as response:
+                    json_data: Dict[str, Any] = await response.json()
+                    if json_data.get("payload", {}).get("resultCode") == "0":
+                        return True
+                    last_error_text = await response.text()
+                    _LOGGER.warning(
+                        "Command '%s' failed (attempt %d/%d): %s",
+                        command,
+                        attempt,
+                        max_attempts,
+                        last_error_text,
+                    )
+            except Exception as exc:
+                last_error_text = str(exc)
+                _LOGGER.warning(
+                    "Command '%s' request exception (attempt %d/%d): %s",
+                    command,
+                    attempt,
+                    max_attempts,
+                    exc,
+                )
+
+            if attempt < max_attempts:
+                await asyncio.sleep(0.5 * attempt)
+
+        _LOGGER.error(
+            "Failed to send command '%s' after %d attempts: %s",
+            command,
+            max_attempts,
+            last_error_text,
+        )
+        _LOGGER.error("%s - Payload:\n%s", url, pformat(last_data))
         return False
 
     async def appliance_configuration(self) -> Dict[str, Any]:
