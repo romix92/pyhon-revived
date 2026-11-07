@@ -158,7 +158,7 @@ class HonCommand:
         except NoAuthenticationException:
             _LOGGER.error("No Authentication")
             return False
-        self.appliance.sync_command_to_params(self.name)
+        self.appliance.sync_command_to_params(self.name, params)
         return result
 
     @property

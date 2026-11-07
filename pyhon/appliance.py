@@ -271,11 +271,17 @@ class HonAppliance:
     async def data_archive(self, path: Path) -> str:
         return await diagnose.zip_archive(self, path, anonymous=True)
 
-    def sync_command_to_params(self, command_name: str) -> None:
+    def sync_command_to_params(
+        self, command_name: str, params: Optional[Dict[str, Any]] = None
+    ) -> None:
         if not (command := self.commands.get(command_name)):
             return
         for key in self.attributes.get("parameters", {}):
-            if new := command.parameters.get(key):
+            if params and key in params:
+                self.attributes["parameters"][key].update(
+                    str(params[key]), shield=True
+                )
+            elif new := command.parameters.get(key):
                 self.attributes["parameters"][key].update(
                     str(new.intern_value), shield=True
                 )
