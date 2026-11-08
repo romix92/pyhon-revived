@@ -3,6 +3,7 @@ from contextlib import suppress
 from copy import copy
 from typing import Dict, Any, Optional, TYPE_CHECKING, List
 
+from pyhon.attributes import HonAttribute
 from pyhon.commands import HonCommand
 from pyhon.exceptions import NoAuthenticationException
 from pyhon.parameter.fixed import HonParameterFixed
@@ -169,10 +170,15 @@ class HonCommandLoader:
 
     def _recover_last_command_states(self) -> None:
         """Set commands to last state"""
+        recovered_commands = []
         for name, command in self.commands.items():
-            if (last_index := self._get_last_command_index(name)) is None:
-                continue
-            last_command = self._command_history[last_index]
+            if (last_index := self._get_last_command_index(name)) is not None:
+                recovered_commands.append(
+                    (last_index, name, command, self._command_history[last_index])
+                )
+        recovered_commands.sort(key=lambda x: x[0], reverse=True)
+
+        for _, name, command, last_command in recovered_commands:
             parameters = last_command.get("command", {}).get("parameters", {})
             command = self._set_last_category(command, name, parameters)
             for key, data in command.settings.items():
@@ -180,6 +186,21 @@ class HonCommandLoader:
                     continue
                 with suppress(ValueError):
                     data.value = parameters.get(key)
+
+            cmd_ts = last_command.get("timestamp")
+            if not cmd_ts:
+                cmd_ts = last_command.get("command", {}).get("timestamp")
+            if not cmd_ts:
+                cmd_ts = last_command.get("creationTimestamp")
+            params_dict = self._appliance.attributes.setdefault("parameters", {})
+            for key, val in parameters.items():
+                attr_data: Dict[str, Any] = {"parNewVal": str(val)}
+                if cmd_ts:
+                    attr_data["lastUpdate"] = cmd_ts
+                if key in params_dict:
+                    params_dict[key].update(attr_data, shield=True)
+                else:
+                    params_dict[key] = HonAttribute(attr_data)
 
     def _add_favourites(self) -> None:
         """Patch program categories with favourites"""

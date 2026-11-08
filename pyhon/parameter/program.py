@@ -26,9 +26,10 @@ class HonParameterProgram(HonParameterEnum):
     @value.setter
     def value(self, value: str) -> None:
         if value in self.values:
-            self._value = value
-            self._command.category = value
-            self._command.appliance.sync_command("settings", self._command.name)
+            if self._value != value:
+                self._value = value
+                self._command.category = value
+                self._command.appliance.sync_command("settings", self._command.name)
         else:
             raise ValueError(f"Allowed values: {self.values} But was: {value}")
 

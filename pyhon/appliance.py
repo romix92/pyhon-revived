@@ -81,8 +81,10 @@ class HonAppliance:
             return self._get_nested_item(item)
         if item in self.data:
             return self.data[item]
-        if item in self.attributes["parameters"]:
+        if item in self.attributes.get("parameters", {}):
             return self.attributes["parameters"][item].value
+        if f"settings.{item}" in self.settings:
+            return self.settings[f"settings.{item}"].value
         return self.info[item]
 
     @overload
