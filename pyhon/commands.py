@@ -154,6 +154,8 @@ class HonCommand:
             ):
                 params.pop("tempSel", None)
                 params.pop("temp", None)
+                if str(params.get("windSpeed", "")) in ("4", "5", "0"):
+                    params["windSpeed"] = "3"
 
         _LOGGER.debug(
             "HonCommand.send_parameters: name='%s', category='%s', mac=%s, params=%s",
