@@ -144,6 +144,15 @@ class HonCommand:
         ancillary_params.pop("programRules", None)
         if "prStr" in params:
             params["prStr"] = self._category_name.upper()
+        if self._appliance and self._appliance.appliance_type == "AC":
+            if (
+                self._name == "settings"
+                and str(params.get("machMode", "")) in ("5", "6")
+            ) or (
+                self._name == "startProgram"
+                and "fan" in self._category_name.lower()
+            ):
+                params.pop("tempSel", None)
         try:
             result = await self.api.send_command(
                 self._appliance,

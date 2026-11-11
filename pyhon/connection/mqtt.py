@@ -162,7 +162,6 @@ class MQTTClient:
         except Exception as e:
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
 
-
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):
             self.client.subscribe(

@@ -9,10 +9,18 @@ class Appliance(ApplianceBase):
         data = super().attributes(data)
         params = data.get("parameters", {})
         mach_mode = params.get("machMode")
-        mach_val = str(mach_mode.value if hasattr(mach_mode, "value") else mach_mode)
+        raw_mach = mach_mode.value if hasattr(mach_mode, "value") else mach_mode
+        try:
+            mach_val = str(int(float(raw_mach)))
+        except (ValueError, TypeError):
+            mach_val = str(raw_mach)
 
         health_mode = params.get("healthMode")
-        health_val = str(health_mode.value if hasattr(health_mode, "value") else health_mode)
+        raw_health = health_mode.value if hasattr(health_mode, "value") else health_mode
+        try:
+            health_val = str(int(float(raw_health)))
+        except (ValueError, TypeError):
+            health_val = str(raw_health)
 
         # Map machMode to hOn program names for AC
         if health_val == "1":
@@ -43,7 +51,11 @@ class Appliance(ApplianceBase):
                     start_cmd.value = program_name
 
         on_off = params.get("onOffStatus")
-        on_off_val = str(on_off.value if hasattr(on_off, "value") else on_off)
+        raw_on_off = on_off.value if hasattr(on_off, "value") else on_off
+        try:
+            on_off_val = str(int(float(raw_on_off)))
+        except (ValueError, TypeError):
+            on_off_val = str(raw_on_off)
         data["active"] = on_off_val == "1"
         return data
 
