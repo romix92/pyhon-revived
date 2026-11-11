@@ -146,14 +146,22 @@ class HonCommand:
             params["prStr"] = self._category_name.upper()
         if self._appliance and self._appliance.appliance_type == "AC":
             current_mach = str(params.get("machMode") or self._appliance.get("machMode") or "")
+            cat_name = (self._category_name or "").lower()
             if (
-                self._name == "settings"
-                and current_mach in ("5", "6")
-            ) or (
-                self._name == "startProgram"
-                and "fan" in self._category_name.lower()
+                current_mach in ("5", "6")
+                or "fan" in cat_name
+                or (self._name == "startProgram" and "fan" in str(params.get("program", "")).lower())
             ):
                 params.pop("tempSel", None)
+                params.pop("temp", None)
+
+        _LOGGER.debug(
+            "HonCommand.send_parameters: name='%s', category='%s', mac=%s, params=%s",
+            self._name,
+            self._category_name,
+            self._appliance.mac_address if self._appliance else "unknown",
+            params,
+        )
         try:
             result = await self.api.send_command(
                 self._appliance,

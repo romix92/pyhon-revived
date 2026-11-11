@@ -241,12 +241,27 @@ class HonAPI:
                 data.update({"programName": program_name.upper()})
             last_data = data
 
+            _LOGGER.debug(
+                "HonAPI.send_command: wysyłanie '%s' (próba %d/%d) do %s | programName=%s | parameters=%s",
+                command,
+                attempt,
+                max_attempts,
+                appliance.mac_address,
+                data.get("programName"),
+                parameters,
+            )
+
             try:
                 async with self._hon.post(
                     url, json=data, timeout=ClientTimeout(total=5)
                 ) as response:
                     json_data: Dict[str, Any] = await response.json()
                     if json_data.get("payload", {}).get("resultCode") == "0":
+                        _LOGGER.debug(
+                            "HonAPI.send_command: komenda '%s' do %s zakończona sukcesem (resultCode=0)",
+                            command,
+                            appliance.mac_address,
+                        )
                         return True
                     last_error_text = await response.text()
                     _LOGGER.warning(
