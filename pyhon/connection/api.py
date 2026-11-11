@@ -270,12 +270,14 @@ class HonAPI:
                 await asyncio.sleep(0.5 * attempt)
 
         _LOGGER.error(
-            "Failed to send command '%s' after %d attempts: %s",
+            "Błąd API hOn przy komendzie '%s' dla urządzenia %s (po %d próbach): %s | Payload parameters: %s",
             command,
+            appliance.mac_address,
             max_attempts,
             last_error_text,
+            pformat(last_data.get("parameters")),
         )
-        _LOGGER.error("%s - Payload:\n%s", url, pformat(last_data))
+        _LOGGER.error("%s - Pełny payload:\n%s", url, pformat(last_data))
         return False
 
     async def appliance_configuration(self) -> Dict[str, Any]:

@@ -145,9 +145,10 @@ class HonCommand:
         if "prStr" in params:
             params["prStr"] = self._category_name.upper()
         if self._appliance and self._appliance.appliance_type == "AC":
+            current_mach = str(params.get("machMode") or self._appliance.get("machMode") or "")
             if (
                 self._name == "settings"
-                and str(params.get("machMode", "")) in ("5", "6")
+                and current_mach in ("5", "6")
             ) or (
                 self._name == "startProgram"
                 and "fan" in self._category_name.lower()
@@ -162,11 +163,25 @@ class HonCommand:
                 self._category_name,
             )
             if not result:
-                _LOGGER.error(result)
+                _LOGGER.error(
+                    "Błąd komendy '%s' dla urządzenia %s (parametry: %s)",
+                    self._name,
+                    self._appliance.mac_address,
+                    params,
+                )
                 raise ApiError("Can't send command")
         except NoAuthenticationException:
-            _LOGGER.error("No Authentication")
+            _LOGGER.error("Brak autoryzacji hOn (NoAuthenticationException) dla %s", self._appliance.mac_address)
             return False
+        except Exception as exc:
+            _LOGGER.error(
+                "Wyjątek podczas wysyłania komendy '%s' do %s: %s (parametry: %s)",
+                self._name,
+                self._appliance.mac_address,
+                exc,
+                params,
+            )
+            raise
         self.appliance.sync_command_to_params(self.name, params)
         return result
 
