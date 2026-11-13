@@ -26,6 +26,9 @@ class MQTTClient:
         self._connection = False
         self._subscribed = False
         self._needs_reauth = False
+        self._has_connected_once = False
+        self._needs_sync = False
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._watchdog_task: asyncio.Task[None] | None = None
 
     @property
@@ -35,6 +38,7 @@ class MQTTClient:
         raise AttributeError("Client is not set")
 
     async def create(self) -> "MQTTClient":
+        self._loop = asyncio.get_running_loop()
         await self._start()
         await self.start_watchdog()
         return self
@@ -49,6 +53,9 @@ class MQTTClient:
         lifecycle_connect_success_data: mqtt5.LifecycleConnectSuccessData,
     ) -> None:
         self._connection = True
+        if self._has_connected_once:
+            self._needs_sync = True
+        self._has_connected_once = True
         _LOGGER.info(
             "Lifecycle Connection Success: %s", str(lifecycle_connect_success_data)
         )
@@ -73,6 +80,8 @@ class MQTTClient:
         lifecycle_connection_failure_data: mqtt5.LifecycleConnectFailureData,
     ) -> None:
         self._connection = False
+        if self._has_connected_once:
+            self._needs_sync = True
         _LOGGER.info(
             "Lifecycle Connection Failure - %s", str(lifecycle_connection_failure_data)
         )
@@ -94,6 +103,8 @@ class MQTTClient:
         lifecycle_disconnect_data: mqtt5.LifecycleDisconnectData,
     ) -> None:
         self._connection = False
+        if self._has_connected_once:
+            self._needs_sync = True
         _LOGGER.info("Lifecycle Disconnection - %s", str(lifecycle_disconnect_data))
 
     def _on_publish_received(self, data: mqtt5.PublishReceivedData) -> None:
@@ -118,8 +129,13 @@ class MQTTClient:
             )
             appliance.connection = False
         elif topic and "connected" in topic:
+            was_connected = appliance.connection
             appliance.connection = True
             _LOGGER.info("Connected %s", appliance.nick_name)
+            if not was_connected and self._loop is not None:
+                self._loop.call_soon_threadsafe(
+                    self._schedule_sync_single, appliance
+                )
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
         self._hon.notify()
@@ -169,6 +185,47 @@ class MQTTClient:
             ).result(10)
             _LOGGER.info("Subscribed to topic %s", topic)
 
+    def _schedule_sync_single(self, appliance: HonAppliance) -> None:
+        asyncio.create_task(self._sync_single_appliance(appliance))
+
+    async def _sync_single_appliance(self, appliance: HonAppliance) -> None:
+        try:
+            _LOGGER.info("Syncing state after reconnect for %s", appliance.nick_name)
+            await appliance.update(force=True)
+            self._hon.notify()
+        except Exception as error:  # pylint: disable=broad-except
+            _LOGGER.warning(
+                "Failed to sync state for %s after reconnect: %r",
+                appliance.nick_name,
+                error,
+            )
+
+    async def _sync_appliances(self) -> None:
+        _LOGGER.info("Syncing appliance states after MQTT reconnect")
+        for appliance in self._appliances:
+            try:
+                await appliance.update(force=True)
+            except Exception as error:  # pylint: disable=broad-except
+                _LOGGER.warning(
+                    "Failed to sync state for %s after MQTT reconnect: %r",
+                    appliance.nick_name,
+                    error,
+                )
+        self._hon.notify()
+
+    async def close(self) -> None:
+        if self._watchdog_task and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+        if self._client is not None:
+            try:
+                self._client.stop()
+            except Exception as error:  # pylint: disable=broad-except
+                _LOGGER.debug("Error stopping MQTT client: %r", error)
+
     async def start_watchdog(self) -> None:
         if not self._watchdog_task or self._watchdog_task.done():
             self._watchdog_task = asyncio.create_task(self._watchdog())
@@ -179,6 +236,8 @@ class MQTTClient:
             try:
                 if not self._connection:
                     _LOGGER.info("Restart mqtt connection")
+                    if self._has_connected_once:
+                        self._needs_sync = True
                     await self._start()
                     # Give the fresh client time to finish its handshake before
                     # the next check, otherwise it gets torn down and rebuilt
@@ -187,6 +246,9 @@ class MQTTClient:
                 elif not self._subscribed:
                     _LOGGER.info("Resubscribing to appliance topics")
                     self._subscribe_appliances()
+                elif self._needs_sync:
+                    self._needs_sync = False
+                    await self._sync_appliances()
             except Exception as error:  # pylint: disable=broad-except
                 # A transient failure inside _start() (token refresh, AWS token
                 # fetch, client build) used to escape and kill this task
