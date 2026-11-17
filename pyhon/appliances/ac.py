@@ -47,8 +47,12 @@ class Appliance(ApplianceBase):
             program_name = ac_mode_map[mach_val]
             data["programName"] = program_name
             if start_cmd := self.parent.settings.get("startProgram.program"):
-                with suppress(ValueError):
-                    start_cmd.value = program_name
+                if hasattr(start_cmd, "set_value"):
+                    with suppress(ValueError):
+                        start_cmd.set_value(program_name)
+                else:
+                    with suppress(ValueError):
+                        start_cmd.value = program_name
 
         on_off = params.get("onOffStatus")
         raw_on_off = on_off.value if hasattr(on_off, "value") else on_off

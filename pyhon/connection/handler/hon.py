@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -36,6 +37,7 @@ class HonConnectionHandler(ConnectionHandler):
         if not self._password:
             raise HonAuthenticationError("A password address must be specified")
         self._auth: Optional[HonAuth] = None
+        self._auth_lock = asyncio.Lock()
 
     @property
     def auth(self) -> HonAuth:
@@ -58,8 +60,12 @@ class HonConnectionHandler(ConnectionHandler):
         return self
 
     async def _check_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
-        if not (self.auth.cognito_token and self.auth.id_token):
-            await self.auth.authenticate()
+        async with self._auth_lock:
+            if not (self.auth.cognito_token and self.auth.id_token):
+                await self.auth.authenticate()
+            elif self.auth.token_expires_soon:
+                _LOGGER.debug("Token expires soon, refreshing before request")
+                await self.auth.refresh(self._refresh_token)
         self._refresh_token = self.auth.refresh_token
         headers["cognito-token"] = self.auth.cognito_token
         headers["id-token"] = self.auth.id_token
@@ -72,13 +78,11 @@ class HonConnectionHandler(ConnectionHandler):
         loop: int = kwargs.pop("loop", 0)
         kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
         async with method(url, *args, **kwargs) as response:
-            needs_retry = response.status in (401, 403) or (
-                (self.auth.token_expires_soon and loop == 0)
-                or (self.auth.token_is_expired and loop == 1)
-            )
+            needs_retry = response.status in (401, 403)
             if needs_retry and loop == 0:
                 _LOGGER.info("Try refreshing token...")
-                await self.auth.refresh(self._refresh_token)
+                async with self._auth_lock:
+                    await self.auth.refresh(self._refresh_token)
                 async with self._intercept(
                     method, url, *args, loop=loop + 1, **kwargs
                 ) as result:
@@ -90,7 +94,8 @@ class HonConnectionHandler(ConnectionHandler):
                     response.status,
                     await response.text(),
                 )
-                await self.create()
+                async with self._auth_lock:
+                    await self.auth.authenticate()
                 async with self._intercept(
                     method, url, *args, loop=loop + 1, **kwargs
                 ) as result:
