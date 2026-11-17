@@ -255,15 +255,20 @@ class HonAPI:
                 async with self._hon.post(
                     url, json=data, timeout=ClientTimeout(total=5)
                 ) as response:
-                    json_data: Dict[str, Any] = await response.json()
-                    if json_data.get("payload", {}).get("resultCode") == "0":
+                    raw_text = await response.text()
+                    try:
+                        json_data: Dict[str, Any] = json.loads(raw_text) if raw_text else {}
+                    except ValueError:
+                        json_data = {}
+                    payload = json_data.get("payload") if isinstance(json_data, dict) else None
+                    if isinstance(payload, dict) and payload.get("resultCode") == "0":
                         _LOGGER.debug(
                             "HonAPI.send_command: komenda '%s' do %s zakończona sukcesem (resultCode=0)",
                             command,
                             appliance.mac_address,
                         )
                         return True
-                    last_error_text = await response.text()
+                    last_error_text = f"HTTP {response.status}: {raw_text}"
                     _LOGGER.warning(
                         "Command '%s' failed (attempt %d/%d): %s",
                         command,
